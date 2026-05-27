@@ -31,6 +31,7 @@ If for some reason you cannot install the binaries, follow the directions below 
 Clone/Download the source code into your workspace:
 
 ```shell
+sudo apt install ros-jazzy-compressed-image-transport python3-pydantic libopencv ros-jazzy-camera-info-manager v4l-utils
 cd /path/to/colcon_ws/src
 git clone https://github.com/ros-drivers/usb_cam.git
 ```
