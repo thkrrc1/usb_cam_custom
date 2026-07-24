@@ -1,101 +1,100 @@
 # usb_cam [![ROS 2 CI](https://github.com/ros-drivers/usb_cam/actions/workflows/build_test.yml/badge.svg)](https://github.com/ros-drivers/usb_cam/actions/workflows/build_test.yml)
 
-## A ROS 2 Driver for V4L USB Cameras
-This package is based off of V4L devices specifically instead of just UVC.
+## V4L USBカメラ用ROS 2ドライバ
 
-For ros1 documentation, see [the ROS wiki](http://ros.org/wiki/usb_cam).
+このパッケージは、UVC全般ではなく、特にV4Lデバイスを対象として作られています。
 
-## Supported ROS 2 Distros and Platforms
+ROS 1のドキュメントについては、[ROS Wiki](http://ros.org/wiki/usb_cam)を参照してください。
 
-All Officially supported Linux Distros and corresponding ROS 2 releases are supported. Please create an issue if you experience any problems on these platforms.
-
-Windows: TBD/Untested/Unproven
-MacOS: TBD/Untested/Unproven
-
-For either MacOS or Windows - if you would like to try and get it working please create an issue to document your effort. If it works we can add it to the instructions here!
-
-## Quickstart
-
-Assuming you have a supported ROS 2 distro installed, run the following command to install the binary release:
-
-```shell
-sudo apt-get install ros-<ros2-distro>-usb-cam
-```
-
-As of today this package should be available for binary installation on all active ROS 2 distros.
-
-If for some reason you cannot install the binaries, follow the directions below to compile from source.
-
-## Building from Source
-
-Clone/Download the source code into your workspace:
-
+## 事前インストール
+以下の動作に必要なパッケージインストールします。
 ```shell
 sudo apt install ros-jazzy-compressed-image-transport python3-pydantic libopencv ros-jazzy-camera-info-manager v4l-utils
-cd /path/to/colcon_ws/src
-git clone https://github.com/ros-drivers/usb_cam.git
 ```
 
-Or click on the green "Download zip" button on the repo's github webpage.
+## udev設定
+USBをPCにまだ登録していない場合は、登録する必要があります。
+＊＊注意＊＊　Moswell製のカメラについてユニークIDが存在しないためUSBポートの位置と型番で判断しています（通常はユニークIDを使用すること）。
 
-Once downloaded and ensuring you have sourced your ROS 2 underlay, go ahead and install the dependencies:
+まず、デバイスがどの`videoID`が割り振られているか確認します。
+```shell
+v4l2-ctl --list-devices
+```
+
+以下のコマンドからデバイスIDを確認します。
+```shell
+udevadm info --query=all --name=/dev/video0 | grep -E 'ID_SERIAL|ID_SERIAL_SHORT|ID_VENDOR_ID|ID_MODEL_ID|ID_PATH|DEVLINKS'
+```
+・出力例
+```shell
+E: ID_MODEL_ID=0100
+E: ID_SERIAL=MOSWELL_CO._LTD._MS-M2326FHU2
+E: ID_VENDOR_ID=288c
+E: ID_PATH_WITH_USB_REVISION=pci-0000:00:14.0-usbv2-0:4.3:1.0
+E: ID_PATH=pci-0000:00:14.0-usb-0:4.3:1.0
+E: ID_PATH_TAG=pci-0000_00_14_0-usb-0_4_3_1_0
+E: DEVLINKS=/dev/camera_right /dev/v4l/by-id/usb-MOSWELL_CO._LTD._MS-M2326FHU2-video-index0 /dev/v4l/by-path/pci-0000:00:14.0-usb-0:4.3:1.0-video-index0 /dev/v4l/by-path/pci-0000:00:14.0-usbv2-0:4.3:1.0-video-index0
+```
+
+udevファイルの作成を作成します。
 
 ```shell
-cd /path/to/colcon_ws
+sudo -E gedit /etc/udev/rules.d/99-usb_camera.rules
+```
+
+記入例
+```shell
+SUBSYSTEM=="video4linux", ENV{ID_SERIAL}=="MOSWELL_CO._LTD._MS-M2326FHU2", ENV{ID_PATH}=="pci-0000:00:14.0-usb-0:4.3:1.0", ATTR{index}=="0", SYMLINK+="camera_right"
+```
+
+ROS 1のドキュメントについては、[ROS Wiki](http://ros.org/wiki/usb_cam)を参照してください。
+
+## ソースからのビルド
+
+ソースコードをワークスペースへクローンまたはダウンロードします。
+
+```shell
+cd /ros2/jazzy/src
+git clone https://github.com/thkrrc1/usb_cam_custom.git
+```
+
+ダウンロード後、ROS 2のアンダーレイ環境をsource済みであることを確認してから、依存パッケージをインストールします。
+
+```shell
+cd /ros2/jazzy/
 rosdep install --from-paths src --ignore-src -y
 ```
 
-From there you should have all the necessary dependencies installed to compile the `usb_cam` package:
+これで、`usb_cam_custom`パッケージのビルドに必要な依存パッケージがすべてインストールされます。
 
 ```shell
-cd /path/to/colcon_ws
-colcon build
-source /path/to/colcon_ws/install/setup.bash
+cd /ros2/jazzy/
+colcon build　--symlink-install
+source install/setup.bash
 ```
 
-Be sure to source the newly built packages after a successful build.
+ビルドが正常に完了したら、新しくビルドしたパッケージの環境を必ずsourceしてください。
+source後は、次のセクションで示す3通りの方法のいずれかでパッケージを実行できます。
 
-Once sourced, you should be able to run the package in one of three ways, shown in the next section.
-
-## Running
-
-The `usb_cam_node` can be ran with default settings, by setting specific parameters either via the command line or by loading in a parameters file.
-
-We provide a "default" params file in the `usb_cam/config/params.yaml` directory to get you started. Feel free to modify this file as you wish.
-
-Also provided is a launch file that should launch the `usb_cam_node_exe` executable along with an additional node that displays an image topic.
-
-The commands to run each of these different ways of starting the node are shown below:
-
-**NOTE: you only need to run ONE of the commands below to run the node**
-
+## 実行方法
+`usb_cam_custom/config/params1.yaml`ディレクトリにパラメータファイルを用意しています。
+＊＊注意＊＊　起動前にudev設定にて設定したデバイスIDに変更してください。
+例：video_device: "/dev/video0"→　video_device: "/dev/camera_right"　　
+　　　　　　　
 ```shell
-# run the executable with default settings (without params file)
-ros2 run usb_cam usb_cam_node_exe
-
-# run the executable while passing in parameters via a yaml file
-ros2 run usb_cam usb_cam_node_exe --ros-args --params-file /path/to/colcon_ws/src/usb_cam/config/params.yaml
-
-# launch the usb_cam executable that loads parameters from the same `usb_cam/config/params.yaml` file as above
-# along with an additional image viewer node
+# 上記と同じ `usb_cam_custom/config/params.yaml` を読み込むusb_cam実行ファイルと、
+# 追加の画像表示ノードをlaunchファイルから起動する
 ros2 launch usb_cam camera.launch.py
 ```
-## Launching Multiple usb_cam's
 
-To launch multiple nodes at once, simply remap the namespace of each one:
+## 対応フォーマット
 
-```shell
-ros2 run usb_cam usb_cam_node_exe --ros-args --remap __ns:=/usb_cam_0 --params-file /path/to/usb_cam/config/params_0.yaml
-ros2 run usb_cam usb_cam_node_exe --ros-args --remap __ns:=/usb_cam_1 --params-file /path/to/usb_cam/config/params_1.yaml
-```
+<a id="device-supported-formats"></a>
+### デバイスが対応するフォーマット
 
-## Supported formats
+接続されているデバイスが対応するフォーマットを確認するには、`usb_cam_node`を実行し、コンソール出力を確認します。
 
-### Device supported formats
-
-To see a connected devices supported formats, run the `usb_cam_node` and observe the console output.
-
-An example output is:
+出力例を以下に示します。
 
 ```log
 This devices supproted formats:
@@ -113,96 +112,33 @@ This devices supproted formats:
        YUYV 4:2:2: 160 x 120 (30 Hz)
 ```
 
-### Driver supported formats
+### ドライバが対応するフォーマット
 
-The driver has its own supported formats. See [the source code](include/usb_cam/formats/)
-for details.
+ドライバ側にも対応フォーマットがあります。詳細については、[ソースコード](include/usb_cam/formats/)を参照してください。
 
-After observing [the devices supported formats](#device-supported-formats), specify which
-format to use via [the parameters file](config/params.yaml) with the `pixel_format` parameter.
+[デバイスが対応するフォーマット](#device-supported-formats)を確認した後、[パラメータファイル](config/params.yaml)の`pixel_format`パラメータで使用するフォーマットを指定します。
 
-To see a list of all currently supported driver formats, run the following command:
 
-```shell
-ros2 run usb_cam usb_cam_node_exe --ros-args -p pixel_format:="test"
-```
+## 圧縮
 
-Note: "test" here could be replaced with any non-supported pixel format string. The driver
-will detect if the given pixel format is supported or not.
+このトピックに関する情報を提供している[`ros2_v4l2_camera`パッケージ](https://gitlab.com/boldhearts/ros2_v4l2_camera#usage-1)と、そのドキュメントに感謝します。
 
-More formats and conversions can be added, contributions welcome!
+システムに`image_transport_plugins`パッケージがインストールされていれば、`usb_cam`は`image_transport`を使用して画像を配信するため、デフォルトで圧縮画像に対応します。プラグインがインストールされている場合、`usb_cam`パッケージは`compressed`トピックを自動的に配信します。
 
-### Supported IO methods
-
-This driver supports three different IO methods as of today:
-
-1. `read`: copies the video frame between user and kernal space
-1. `mmap`: memory mapped buffers allocated in kernel space
-1. `userptr`: memory buffers allocated in the user space
-
-To read more on the different methods, check out [this article that provides a good overview
-of each](https://lwn.net/Articles/240667/)
-
-## Compression
-
-Big thanks to [the `ros2_v4l2_camera` package](https://gitlab.com/boldhearts/ros2_v4l2_camera#usage-1) and their documentation on this topic.
-
-The `usb_cam` should support compression by default since it uses `image_transport` to publish its images as long as the `image_transport_plugins` package is installed on your system. With the plugins installed the `usb_cam` package should publish a `compressed` topic automatically.
-
-Unfortunately `rviz2` and `show_image.py` do not support visualizing the compressed images just yet so you will need to republish the compressed image downstream to uncompress it:
+現時点では、`rviz2`と`show_image.py`は圧縮画像の表示に対応していません。そのため、圧縮画像を後段で再配信し、非圧縮画像へ変換する必要があります。
 
 ```shell
 ros2 run image_transport republish compressed raw --ros-args --remap in/compressed:=image_raw/compressed --remap out:=image_raw/uncompressed
 ```
 
-## Testing
+## ドキュメント
 
-To run the basic unit tests for this repository:
+[Doxygen](http://docs.ros.org/indigo/api/usb_cam/html/)のファイルは、ROS Wikiで確認できます。
 
-```shell
-colcon build --packages-select usb_cam
-colcon test --pacakges-select usb_cam
-```
+### ライセンス
 
-### Integration tests
+usb_camはBSDライセンスで公開されています。利用条件の全文については、[LICENSE](LICENSE)ファイルを参照してください。
 
-To run integration tests for this repository:
+### 作者
 
-```shell
-colcon build --packages-select usb_cam --cmake-args -DINTEGRATION_TESTS=1
-colcon test --pacakges-select usb_cam
-```
-
-### Address and leak sanitizing
-
-Incorporated into the `CMakelists.txt` file to assist with memory leak and address sanitizing
-is a flag to add these compile commands to the targets.
-
-To enable them, pass in the `SANITIZE=1` flag:
-
-```shell
-colcon build --packages-select usb_cam --cmake-args -DSANITIZE=1
-```
-
-Once built, run the nodes executable directly and pass any `ASAN_OPTIONS` that are needed:
-
-```shell
-ASAN_OPTIONS=new_delete_type_mismatch=0 ./install/usb_cam/lib/usb_cam/usb_cam_node_exe 
-```
-
-After shutting down the executable with `Ctrl+C`, the sanitizer will report any memory leaks.
-
-By default this is turned off since compiling with the sanatizer turned on causes bloat and slows
-down performance.
-
-## Documentation
-
-[Doxygen](http://docs.ros.org/indigo/api/usb_cam/html/) files can be found on the ROS wiki.
-
-### License
-
-usb_cam is released with a BSD license. For full terms and conditions, see the [LICENSE](LICENSE) file.
-
-### Authors
-
-See the [AUTHORS](AUTHORS.md) file for a full list of contributors.
+コントリビューターの完全な一覧については、[AUTHORS](AUTHORS.md)ファイルを参照してください。
