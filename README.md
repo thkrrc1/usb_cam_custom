@@ -47,7 +47,6 @@ sudo -E gedit /etc/udev/rules.d/99-usb_camera.rules
 SUBSYSTEM=="video4linux", ENV{ID_SERIAL}=="MOSWELL_CO._LTD._MS-M2326FHU2", ENV{ID_PATH}=="pci-0000:00:14.0-usb-0:4.3:1.0", ATTR{index}=="0", SYMLINK+="camera_right"
 ```
 
-ROS 1のドキュメントについては、[ROS Wiki](http://ros.org/wiki/usb_cam)を参照してください。
 
 ## ソースからのビルド
 
